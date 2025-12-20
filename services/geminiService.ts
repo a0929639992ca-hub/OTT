@@ -13,14 +13,10 @@ export const searchOTT = async (query: string): Promise<{
 }> => {
   console.log("Gemini Service: Starting search for", query);
   
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY is missing. Please check your environment variables.");
-  }
+  // 按照規範，每次調用時初始化以獲取最新的 API_KEY
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `搜尋台灣合法串流平台供應與「${query}」的高清海報連結。優先尋找 image.tmdb.org 的來源。`,
@@ -31,8 +27,6 @@ export const searchOTT = async (query: string): Promise<{
     });
 
     const text = response.text || "";
-    console.log("Gemini Service: Received response text");
-    
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
       .filter((chunk: any) => chunk && chunk.web)
@@ -55,8 +49,9 @@ export const searchOTT = async (query: string): Promise<{
     const cleanedText = text.replace(/(?:(?:\*\*|__)?(?:海報連結|官方海報|Poster URL|Image URL|海報網址)(?:\*\*|__)?[：:\s]+https?:\/\/[^\s\n]+\n?)/gi, "");
 
     return { text: cleanedText, sources, posterUrl };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error Detail:", error);
+    // 如果是找不到實體，可能是 Key 的問題，讓上層處理
     throw error;
   }
 };
