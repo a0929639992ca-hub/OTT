@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
@@ -15,8 +14,6 @@ interface WatchlistItem {
   sources: any[];
 }
 
-// Fixed: Removed AIStudio interface and declare global block to resolve conflicting property declarations on window.
-
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(AppState.IDLE);
   const [view, setView] = useState<'search' | 'watchlist'>('search');
@@ -29,22 +26,26 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (query: string, updateUrl = true) => {
     if (!query.trim()) return;
     
-    // 檢查 API Key 狀態 (優先檢查 process.env，次之檢查 window.aistudio)
-    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined' && process.env.API_KEY.length > 5;
+    // 檢查 API Key 狀態
+    const envKey = process.env.API_KEY;
+    const hasEnvKey = !!envKey && envKey !== 'undefined' && envKey.length > 5;
     
     if (!hasEnvKey) {
-      // Fixed: Using (window as any) to bypass conflicting declarations on the aistudio global property.
-      const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
-      if (!hasSelected) {
-        setErrorMessage("目前未偵測到有效的 API Key。請點擊下方按鈕選擇您的 Google AI Studio 金鑰。");
-        setState(AppState.ERROR);
-        return;
+      try {
+        const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasSelected) {
+          setErrorMessage("API Key 尚未選擇。請點擊按鈕開啟金鑰選擇對話框。");
+          setState(AppState.ERROR);
+          return;
+        }
+      } catch (e) {
+        console.error("API Key check error", e);
       }
     }
 
     console.log("App: Commencing search for", query);
-    setCurrentQuery(query);
     setState(AppState.SEARCHING);
+    setCurrentQuery(query);
     setView('search');
     setResult(null);
     setErrorMessage('');
@@ -73,7 +74,7 @@ const App: React.FC = () => {
       
       const errorMsg = error.message || "";
       if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("404") || errorMsg.includes("API key")) {
-        setErrorMessage("您的 API Key 權限不足或已過期。請重新點擊「選擇 API Key」並選擇一個已啟用計費的專案金鑰。");
+        setErrorMessage("API Key 無效或授權已過期，請重新選擇已啟用計費的專案金鑰。");
       } else {
         setErrorMessage(errorMsg || "連線至 AI 服務時發生錯誤，請稍後再試。");
       }
@@ -83,9 +84,7 @@ const App: React.FC = () => {
 
   const handleOpenPicker = async () => {
     try {
-      // Fixed: Using (window as any) to bypass conflicting declarations on the aistudio global property.
       await (window as any).aistudio.openSelectKey();
-      // 假設選擇成功後重置狀態
       setState(AppState.IDLE);
       setErrorMessage('');
     } catch (e) {

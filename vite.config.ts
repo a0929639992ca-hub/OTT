@@ -3,10 +3,6 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  define: {
-    // 確保在瀏覽器環境中可以存取到 API_KEY
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY)
-  },
   build: {
     outDir: 'dist',
     sourcemap: false,
