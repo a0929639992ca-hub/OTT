@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { SYSTEM_PROMPT } from "../constants";
 
@@ -11,15 +12,11 @@ export const searchOTT = async (query: string): Promise<{
   sources: Array<{ uri: string; title: string }>;
   posterUrl: string | null;
 }> => {
-  console.log("Gemini Service: Executing AI search for", query);
+  console.log("Gemini Service: Starting AI content search for", query);
   
-  const apiKey = process.env.API_KEY;
-  if (!apiKey || apiKey === 'undefined') {
-    throw new Error("API_KEY is missing. Please select an API key.");
-  }
-
   // 按照規範，每次調用時初始化以獲取最新的 API_KEY
-  const ai = new GoogleGenAI({ apiKey });
+  // Fixed: Directly using process.env.API_KEY for SDK initialization.
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
@@ -31,6 +28,7 @@ export const searchOTT = async (query: string): Promise<{
       },
     });
 
+    // Fixed: Accessed .text property directly (not as a method).
     const text = response.text || "";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
@@ -56,7 +54,7 @@ export const searchOTT = async (query: string): Promise<{
 
     return { text: cleanedText, sources, posterUrl };
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
+    console.error("Gemini API Invocation Error:", error);
     throw error;
   }
 };

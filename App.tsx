@@ -15,20 +15,7 @@ interface WatchlistItem {
   sources: any[];
 }
 
-/**
- * Define AIStudio interface to match existing global definitions and fix TypeScript errors.
- * This resolves: Subsequent property declarations must have the same type.
- */
-interface AIStudio {
-  hasSelectedApiKey: () => Promise<boolean>;
-  openSelectKey: () => Promise<void>;
-}
-
-declare global {
-  interface Window {
-    aistudio: AIStudio;
-  }
-}
+// Fixed: Removed AIStudio interface and declare global block to resolve conflicting property declarations on window.
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>(AppState.IDLE);
@@ -42,22 +29,20 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (query: string, updateUrl = true) => {
     if (!query.trim()) return;
     
-    // 檢查 API Key 狀態
-    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
+    // 檢查 API Key 狀態 (優先檢查 process.env，次之檢查 window.aistudio)
+    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined' && process.env.API_KEY.length > 5;
+    
     if (!hasEnvKey) {
-      try {
-        const hasSelectedKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasSelectedKey) {
-          setErrorMessage("API Key 缺失。請點擊按鈕選擇您的 Google Gemini API Key 以繼續。");
-          setState(AppState.ERROR);
-          return;
-        }
-      } catch (e) {
-        console.error("Check API key error:", e);
+      // Fixed: Using (window as any) to bypass conflicting declarations on the aistudio global property.
+      const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
+      if (!hasSelected) {
+        setErrorMessage("目前未偵測到有效的 API Key。請點擊下方按鈕選擇您的 Google AI Studio 金鑰。");
+        setState(AppState.ERROR);
+        return;
       }
     }
 
-    console.log("App Component: Initiating search for", query);
+    console.log("App: Commencing search for", query);
     setCurrentQuery(query);
     setState(AppState.SEARCHING);
     setView('search');
@@ -84,25 +69,27 @@ const App: React.FC = () => {
         setState(AppState.SUCCESS);
       }
     } catch (error: any) {
-      console.error("App Component: Search failed", error);
+      console.error("App: Search execution failed", error);
       
-      if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY")) {
-        setErrorMessage("API Key 無效或未授權，請重新選擇金鑰。");
+      const errorMsg = error.message || "";
+      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("404") || errorMsg.includes("API key")) {
+        setErrorMessage("您的 API Key 權限不足或已過期。請重新點擊「選擇 API Key」並選擇一個已啟用計費的專案金鑰。");
       } else {
-        setErrorMessage(error.message || "搜尋服務暫時無法回應，請稍後再試。");
+        setErrorMessage(errorMsg || "連線至 AI 服務時發生錯誤，請稍後再試。");
       }
       setState(AppState.ERROR);
     }
   }, []);
 
-  const openKeyPicker = async () => {
+  const handleOpenPicker = async () => {
     try {
-      await window.aistudio.openSelectKey();
-      // 假設選擇後 Key 已更新，重置狀態讓使用者可以重新搜尋
+      // Fixed: Using (window as any) to bypass conflicting declarations on the aistudio global property.
+      await (window as any).aistudio.openSelectKey();
+      // 假設選擇成功後重置狀態
       setState(AppState.IDLE);
       setErrorMessage('');
     } catch (e) {
-      console.error("Open key picker error:", e);
+      console.error("Key picker error:", e);
     }
   };
 
@@ -214,7 +201,7 @@ const App: React.FC = () => {
                 <h3 className="text-2xl font-black text-white mb-4">搜尋服務暫時無法回應</h3>
                 <p className="text-zinc-400 mb-8 max-w-sm mx-auto">{errorMessage}</p>
                 {errorMessage.includes("API Key") ? (
-                  <button onClick={openKeyPicker} className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black shadow-xl shadow-red-600/20 transition-all">選擇 API Key</button>
+                  <button onClick={handleOpenPicker} className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black shadow-xl shadow-red-600/20 transition-all">選擇 API Key</button>
                 ) : (
                   <button onClick={() => setState(AppState.IDLE)} className="px-10 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold">重新嘗試</button>
                 )}

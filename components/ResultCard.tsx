@@ -318,6 +318,28 @@ const ResultCard: React.FC<ResultCardProps> = ({ text, sources, query, posterUrl
               </div>
             </div>
           )}
+
+          {/* Fixed: Displaying grounding chunks as mandatory reference URLs */}
+          {!isNotFound && sources && sources.length > 0 && (
+            <div className="pt-12 border-t border-zinc-800">
+               <h4 className="text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                 <span className="w-6 h-px bg-zinc-800"></span> 參考來源
+               </h4>
+               <div className="flex flex-wrap gap-x-8 gap-y-4">
+                 {sources.map((source, idx) => (
+                   <a 
+                    key={idx} 
+                    href={source.uri} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-xs text-zinc-500 hover:text-red-500 transition-colors underline decoration-zinc-800 underline-offset-4"
+                   >
+                    {source.title || source.uri}
+                   </a>
+                 ))}
+               </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
