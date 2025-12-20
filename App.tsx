@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
@@ -27,7 +26,7 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (query: string, updateUrl = true) => {
     if (!query.trim()) return;
     
-    console.log("Starting search for:", query);
+    console.log("App Component: handleSearch triggered with", query);
     setCurrentQuery(query);
     setState(AppState.SEARCHING);
     setView('search');
@@ -47,7 +46,7 @@ const App: React.FC = () => {
 
     try {
       const data = await searchOTT(query);
-      console.log("Search Success:", data);
+      console.log("App Component: Search response successful");
       setResult(data);
       if (data.text.includes("未在指定平台中找到此內容")) {
         setState(AppState.NOT_FOUND);
@@ -55,8 +54,8 @@ const App: React.FC = () => {
         setState(AppState.SUCCESS);
       }
     } catch (error) {
-      console.error("Search Handler Error:", error);
-      setErrorMessage(error instanceof Error ? error.message : "未知錯誤，請檢查您的 API Key 設定。");
+      console.error("App Component: Search failed", error);
+      setErrorMessage(error instanceof Error ? error.message : "發生未知錯誤，請確認 API Key 設定或網路連線。");
       setState(AppState.ERROR);
     }
   }, []);
@@ -75,7 +74,10 @@ const App: React.FC = () => {
 
     const params = new URLSearchParams(window.location.search);
     const q = params.get('q');
-    if (q) { handleSearch(q, false); }
+    if (q) { 
+      console.log("App Component: Found URL query parameter, auto-searching...");
+      handleSearch(q, false); 
+    }
   }, [handleSearch]);
 
   useEffect(() => {
@@ -114,7 +116,6 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#09090b] text-zinc-100 selection:bg-red-500/30 font-sans">
       <div className="max-w-6xl mx-auto px-4">
         
-        {/* Navigation Bar */}
         <div className="flex justify-between items-center py-8">
           <button 
             onClick={() => { 
@@ -203,7 +204,7 @@ const App: React.FC = () => {
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 </div>
                 <h3 className="text-2xl font-black text-white mb-4">搜尋服務暫時無法回應</h3>
-                <p className="text-zinc-400 mb-8">{errorMessage}</p>
+                <p className="text-zinc-400 mb-8 max-w-sm mx-auto">{errorMessage}</p>
                 <button onClick={() => setState(AppState.IDLE)} className="px-10 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold">重新嘗試</button>
               </div>
             )}
