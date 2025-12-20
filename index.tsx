@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -10,19 +9,5 @@ if (!rootElement) {
 
 const root = ReactDOM.createRoot(rootElement);
 
-try {
-  root.render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-} catch (error) {
-  console.error("Critical rendering error:", error);
-  rootElement.innerHTML = `
-    <div style="padding: 20px; color: white; background: #000; font-family: sans-serif;">
-      <h1>應用程式載入失敗</h1>
-      <p>請檢查網路連線或稍後再試。</p>
-      <pre style="color: red; background: #111; padding: 10px;">${error instanceof Error ? error.message : String(error)}</pre>
-    </div>
-  `;
-}
+// 移除 StrictMode 以避免在開發環境或某些 CDN 環境下的雙重觸發行為，確保搜尋行為單一化
+root.render(<App />);
