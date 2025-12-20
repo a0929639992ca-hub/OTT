@@ -4,7 +4,7 @@ import SearchBar from './components/SearchBar';
 import ResultCard from './components/ResultCard';
 import { searchOTT } from './services/geminiService';
 import { AppState } from './types';
-import { SUGGESTED_MOVIES, PLATFORMS_LIST, MOOD_TAGS } from './constants';
+import { MOOD_TAGS } from './constants';
 
 interface WatchlistItem {
   id: string;
@@ -23,29 +23,27 @@ const App: React.FC = () => {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSearch = useCallback(async (query: string, updateUrl = true) => {
-    if (!query.trim()) return;
-    
-    // 檢查 API Key 狀態
-    const envKey = process.env.API_KEY;
-    const hasEnvKey = !!envKey && envKey !== 'undefined' && envKey.length > 5;
-    
-    if (!hasEnvKey) {
-      try {
-        const hasSelected = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasSelected) {
-          setErrorMessage("API Key 尚未選擇。請點擊按鈕開啟金鑰選擇對話框。");
-          setState(AppState.ERROR);
-          return;
-        }
-      } catch (e) {
-        console.error("API Key check error", e);
+  const handleOpenKeyPicker = async () => {
+    try {
+      if ((window as any).aistudio?.openSelectKey) {
+        await (window as any).aistudio.openSelectKey();
+        // 假設選擇後恢復到閒置狀態，讓使用者可以重試
+        setState(AppState.IDLE);
+        setErrorMessage('');
+      } else {
+        alert("目前環境不支援手動選擇金鑰。");
       }
+    } catch (e) {
+      console.error("Failed to open key picker", e);
     }
+  };
 
+  const handleSearch = useCallback(async (query: string, updateUrl = true) => {
+    if (!query.trim() || state === AppState.SEARCHING) return;
+    
     console.log("App: Commencing search for", query);
-    setState(AppState.SEARCHING);
     setCurrentQuery(query);
+    setState(AppState.SEARCHING);
     setView('search');
     setResult(null);
     setErrorMessage('');
@@ -73,24 +71,15 @@ const App: React.FC = () => {
       console.error("App: Search execution failed", error);
       
       const errorMsg = error.message || "";
-      if (errorMsg.includes("Requested entity was not found") || errorMsg.includes("404") || errorMsg.includes("API key")) {
-        setErrorMessage("API Key 無效或授權已過期，請重新選擇已啟用計費的專案金鑰。");
+      // 偵測是否為 API 金鑰相關錯誤 (例如 404, 401, 403)
+      if (errorMsg.includes("not found") || errorMsg.includes("API key") || errorMsg.includes("404")) {
+        setErrorMessage("API 金鑰無效或未獲授權。這通常是因為金鑰所在的專案未啟用計費。請嘗試重新選擇已付費的金鑰。");
       } else {
         setErrorMessage(errorMsg || "連線至 AI 服務時發生錯誤，請稍後再試。");
       }
       setState(AppState.ERROR);
     }
-  }, []);
-
-  const handleOpenPicker = async () => {
-    try {
-      await (window as any).aistudio.openSelectKey();
-      setState(AppState.IDLE);
-      setErrorMessage('');
-    } catch (e) {
-      console.error("Key picker error:", e);
-    }
-  };
+  }, [state]);
 
   useEffect(() => {
     const savedWatchlist = localStorage.getItem('streamfinder_watchlist');
@@ -193,19 +182,38 @@ const App: React.FC = () => {
             )}
 
             {state === AppState.ERROR && (
-              <div className="max-w-2xl mx-auto py-24 text-center glass-effect rounded-[3rem] border-red-900/50">
+              <div className="max-w-2xl mx-auto py-24 text-center glass-effect rounded-[3rem] border-red-900/50 px-8">
                 <div className="w-20 h-20 bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-6 text-red-500">
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                 </div>
                 <h3 className="text-2xl font-black text-white mb-4">搜尋服務暫時無法回應</h3>
                 <p className="text-zinc-400 mb-8 max-w-sm mx-auto">{errorMessage}</p>
-                {errorMessage.includes("API Key") ? (
-                  <button onClick={handleOpenPicker} className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black shadow-xl shadow-red-600/20 transition-all">選擇 API Key</button>
-                ) : (
-                  <button onClick={() => setState(AppState.IDLE)} className="px-10 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold">重新嘗試</button>
-                )}
-                <div className="mt-6 text-xs text-zinc-600">
-                  <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="underline hover:text-zinc-400">查看 API 計費說明</a>
+                
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                   <button 
+                    onClick={handleOpenKeyPicker} 
+                    className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black shadow-xl shadow-red-600/20 transition-all"
+                  >
+                    選擇 API Key
+                  </button>
+                  <button 
+                    onClick={() => setState(AppState.IDLE)} 
+                    className="px-10 py-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-bold transition-all"
+                  >
+                    返回首頁
+                  </button>
+                </div>
+
+                <div className="mt-8 pt-8 border-t border-zinc-800">
+                  <p className="text-xs text-zinc-500 mb-2">使用 Google Search 功能需要具備計費權限的金鑰。</p>
+                  <a 
+                    href="https://ai.google.dev/gemini-api/docs/billing" 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    className="text-xs text-red-500 font-bold underline hover:text-red-400"
+                  >
+                    查看 API 計費與設置說明
+                  </a>
                 </div>
               </div>
             )}

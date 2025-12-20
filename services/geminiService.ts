@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { SYSTEM_PROMPT } from "../constants";
 
@@ -12,10 +11,9 @@ export const searchOTT = async (query: string): Promise<{
   sources: Array<{ uri: string; title: string }>;
   posterUrl: string | null;
 }> => {
-  console.log("Gemini Service: Starting AI content search for", query);
+  console.log("Gemini Service: Executing AI search with grounding for", query);
   
-  // 按照規範，每次調用時初始化以獲取最新的 API_KEY
-  // Fixed: Directly using process.env.API_KEY for SDK initialization.
+  // 按照規範，每次調用時建立新實例以確保抓取到最新的 API_KEY
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
@@ -28,7 +26,7 @@ export const searchOTT = async (query: string): Promise<{
       },
     });
 
-    // Fixed: Accessed .text property directly (not as a method).
+    // 依照 SDK 規範直接存取 .text 屬性
     const text = response.text || "";
     const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     const sources = groundingChunks
@@ -50,11 +48,13 @@ export const searchOTT = async (query: string): Promise<{
     }
 
     const posterUrl = sanitizeUrl(rawPosterUrl);
+    
+    // 清理文本中的海報網址部分以美化顯示
     const cleanedText = text.replace(/(?:(?:\*\*|__)?(?:海報連結|官方海報|Poster URL|Image URL|海報網址)(?:\*\*|__)?[：:\s]+https?:\/\/[^\s\n]+\n?)/gi, "");
 
     return { text: cleanedText, sources, posterUrl };
   } catch (error: any) {
-    console.error("Gemini API Invocation Error:", error);
+    console.error("Gemini API Error Detail:", error);
     throw error;
   }
 };
