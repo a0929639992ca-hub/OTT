@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import SearchBar from './components/SearchBar';
@@ -14,7 +15,10 @@ interface WatchlistItem {
   sources: any[];
 }
 
-// 修正 global 宣告以符合環境預定義的 AIStudio 類型，解決與內建型別聲明的衝突
+/**
+ * Define AIStudio interface to match existing global definitions and fix TypeScript errors.
+ * This resolves: Subsequent property declarations must have the same type.
+ */
 interface AIStudio {
   hasSelectedApiKey: () => Promise<boolean>;
   openSelectKey: () => Promise<void>;
@@ -38,17 +42,22 @@ const App: React.FC = () => {
   const handleSearch = useCallback(async (query: string, updateUrl = true) => {
     if (!query.trim()) return;
     
-    // 檢查是否有 API Key
-    if (!process.env.API_KEY) {
-      const hasKey = await window.aistudio.hasSelectedApiKey();
-      if (!hasKey) {
-        setErrorMessage("找不到 API Key。請點擊下方按鈕選擇您的 API Key 以開始使用。");
-        setState(AppState.ERROR);
-        return;
+    // 檢查 API Key 狀態
+    const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
+    if (!hasEnvKey) {
+      try {
+        const hasSelectedKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasSelectedKey) {
+          setErrorMessage("API Key 缺失。請點擊按鈕選擇您的 Google Gemini API Key 以繼續。");
+          setState(AppState.ERROR);
+          return;
+        }
+      } catch (e) {
+        console.error("Check API key error:", e);
       }
     }
 
-    console.log("App Component: handleSearch triggered with", query);
+    console.log("App Component: Initiating search for", query);
     setCurrentQuery(query);
     setState(AppState.SEARCHING);
     setView('search');
@@ -77,20 +86,24 @@ const App: React.FC = () => {
     } catch (error: any) {
       console.error("App Component: Search failed", error);
       
-      if (error.message?.includes("Requested entity was not found")) {
-        setErrorMessage("API Key 權限不足或已失效，請重新選擇。");
-        await window.aistudio.openSelectKey();
+      if (error.message?.includes("Requested entity was not found") || error.message?.includes("API_KEY")) {
+        setErrorMessage("API Key 無效或未授權，請重新選擇金鑰。");
       } else {
-        setErrorMessage(error.message || "搜尋失敗，請檢查網路或 API 設定。");
+        setErrorMessage(error.message || "搜尋服務暫時無法回應，請稍後再試。");
       }
       setState(AppState.ERROR);
     }
   }, []);
 
   const openKeyPicker = async () => {
-    await window.aistudio.openSelectKey();
-    setState(AppState.IDLE);
-    setErrorMessage('');
+    try {
+      await window.aistudio.openSelectKey();
+      // 假設選擇後 Key 已更新，重置狀態讓使用者可以重新搜尋
+      setState(AppState.IDLE);
+      setErrorMessage('');
+    } catch (e) {
+      console.error("Open key picker error:", e);
+    }
   };
 
   useEffect(() => {
@@ -200,7 +213,7 @@ const App: React.FC = () => {
                 </div>
                 <h3 className="text-2xl font-black text-white mb-4">搜尋服務暫時無法回應</h3>
                 <p className="text-zinc-400 mb-8 max-w-sm mx-auto">{errorMessage}</p>
-                {errorMessage.includes("找不到 API Key") || errorMessage.includes("權限不足") ? (
+                {errorMessage.includes("API Key") ? (
                   <button onClick={openKeyPicker} className="px-10 py-4 bg-red-600 hover:bg-red-500 text-white rounded-2xl font-black shadow-xl shadow-red-600/20 transition-all">選擇 API Key</button>
                 ) : (
                   <button onClick={() => setState(AppState.IDLE)} className="px-10 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl font-bold">重新嘗試</button>
@@ -230,7 +243,6 @@ const App: React.FC = () => {
           </>
         ) : (
           <div className="pb-40">
-             {/* 收藏清單視圖保持原樣... */}
              <div className="mb-12">
                 <h2 className="text-5xl font-black text-white tracking-tighter">我的<span className="text-red-600">收藏片單</span></h2>
                 <p className="text-zinc-500 text-lg mt-2 font-medium">共保存 {watchlist.length} 部作品</p>
